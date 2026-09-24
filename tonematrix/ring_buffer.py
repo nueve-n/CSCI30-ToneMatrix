@@ -45,8 +45,8 @@ class RingBuffer:
 
     def size(self) -> int:
         """How many items are in the buffer right now."""
-
-        return abs(self._rear - self._front)
+        
+        return self._size
         # TODO (Milestone 2)
 
     def is_empty(self) -> bool:
@@ -67,10 +67,10 @@ class RingBuffer:
         if self.is_full(): raise IndexError("Ringbuffer.enqueue") 
         self._data[self._rear] = x
 
-        if self.capacity() == self.rear: self.rear = 0
+        if (self.capacity() - 1) == self._rear: self._rear = 0
         else: self._rear += 1
 
-        self._size = self.size()
+        self._size += 1
         # TODO (Milestone 3)
 
     def dequeue(self):
@@ -81,10 +81,15 @@ class RingBuffer:
 
         if self.size() == 0: raise IndexError("RingBuffer.dequeue")
 
+        num = self._data[self._front]
         self._data[self._front] = 0
-        self.front += 1
 
-        self._size = self.size()
+        if (self.capacity() - 1) == self._front: self._front = 0
+        else: self._front += 1
+
+        self._size -= 1
+
+        return num
         # TODO (Milestone 3)
 
     def peek(self) -> float: #check just in case length error
@@ -92,7 +97,7 @@ class RingBuffer:
 
         Raise IndexError if the buffer is empty.
         """
-
+        if self.is_empty(): raise IndexError("RingBuffer.peek")
         return self._data[self._front]
         
         # TODO (Milestone 3)
