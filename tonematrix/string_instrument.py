@@ -35,7 +35,19 @@ class StringInstrument:
         would hold fewer than 2 samples.
         """
         # TODO (Milestone 4)
-        raise NotImplementedError("StringInstrument.__init__")
+        if frequency <= 0:
+            raise ValueError("Frequency must be positive.")
+
+        capacity = int(sample_rate // frequency)
+
+        if capacity < 2:
+            raise ValueError("Buffer capacity must be at least 2 samples.")
+
+        self.frequency = frequency
+        self.buffer = RingBuffer(capacity)
+
+        for _ in range(capacity):
+            self.buffer.enqueue(0.0)
 
     @classmethod
     def make_from_array(cls, values, frequency=None, sample_rate=SAMPLE_RATE):
@@ -62,12 +74,28 @@ class StringInstrument:
         back half to -PLUCK_AMPLITUDE.
         """
         # TODO (Milestone 5)
-        raise NotImplementedError("StringInstrument.pluck")
+        capacity = self.buffer.capacity()
+        halfway = capacity // 2
+
+        while not self.buffer.is_empty():
+            self.buffer.dequeue()
+
+        for i in range(capacity):
+            if i < halfway:
+                self.buffer.enqueue(PLUCK_AMPLITUDE)
+            else:
+                self.buffer.enqueue(-PLUCK_AMPLITUDE)
 
     def next_sample(self):
         """Return the next output sample and advance the simulation one step."""
         # TODO (Milestone 6)
-        raise NotImplementedError("StringInstrument.next_sample")
+        first = self.buffer.dequeue()
+        second = self.buffer.peek()
+
+        new_sample = DECAY * 0.5 * (first + second)
+        self.buffer.enqueue(new_sample)
+
+        return first
 
     def energy(self):
         """Mean absolute amplitude in the buffer. Provided; used in Part 4.
