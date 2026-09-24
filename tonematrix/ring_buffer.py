@@ -17,7 +17,7 @@ from array import array
 class RingBuffer:
     """A circular queue of floats with a fixed capacity."""
 
-    def __init__(self, capacity: int):
+    def __init__(self, capacity):
         """Create an empty buffer that can hold `capacity` items.
 
         Set up four things:
@@ -30,31 +30,31 @@ class RingBuffer:
         """
         if capacity < 1: raise ValueError("RingBuffer.__init__")
 
-        self._data = array.array(0 for x in range (capacity))
+        self._data = array("d", [0.0] * capacity)
         self._front = 0
         self._rear = 0
         self._size = 0 
 
         # TODO (Milestone 2)
 
-    def capacity(self):
+    def capacity(self) -> int:
         """The most items this buffer can hold."""
 
-        return self._data.size()
+        return len(self._data)
         # TODO (Milestone 2)
 
-    def size(self):
+    def size(self) -> int:
         """How many items are in the buffer right now."""
 
-        return self._rear - self._front
+        return abs(self._rear - self._front)
         # TODO (Milestone 2)
 
-    def is_empty(self):
+    def is_empty(self) -> bool:
 
         return self._size == 0 
         # TODO (Milestone 2)
 
-    def is_full(self):
+    def is_full(self) -> bool:
 
         return self.size() == self.capacity()
         # TODO (Milestone 2)
@@ -87,7 +87,7 @@ class RingBuffer:
         self._size = self.size()
         # TODO (Milestone 3)
 
-    def peek(self):
+    def peek(self) -> float: #check just in case length error
         """Return the item at the front without removing it.
 
         Raise IndexError if the buffer is empty.
