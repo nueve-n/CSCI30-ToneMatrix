@@ -19,6 +19,7 @@ PLUCK_AMPLITUDE = 0.05
 
 # How much of its energy the string keeps on each trip around the buffer.
 DECAY = 0.995
+DECAY_HALF = DECAY * 0.5
 
 
 class StringInstrument:
@@ -80,11 +81,10 @@ class StringInstrument:
         while not self.buffer.is_empty():
             self.buffer.dequeue()
 
-        for i in range(capacity):
-            if i < halfway:
-                self.buffer.enqueue(PLUCK_AMPLITUDE)
-            else:
-                self.buffer.enqueue(-PLUCK_AMPLITUDE)
+        for _ in range(halfway):
+            self.buffer.enqueue(PLUCK_AMPLITUDE)
+        for _ in range(capacity - halfway):
+            self.buffer.enqueue(-PLUCK_AMPLITUDE)
 
     def next_sample(self):
         """Return the next output sample and advance the simulation one step."""
@@ -92,7 +92,7 @@ class StringInstrument:
         first = self.buffer.dequeue()
         second = self.buffer.peek()
 
-        new_sample = DECAY * 0.5 * (first + second)
+        new_sample = (first + second) * DECAY_HALF
         self.buffer.enqueue(new_sample)
 
         return first
