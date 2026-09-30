@@ -110,7 +110,7 @@ class ToneMatrix:
         """Switch every cell off, without replacing the list."""
 
         for i in range(len(self.grid)):
-                    self.grid[i] = False
+            self.grid[i] = False
 
         self.active_rows.clear()
 
