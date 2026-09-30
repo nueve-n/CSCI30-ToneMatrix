@@ -13,7 +13,6 @@ Rules for this file:
 
 from array import array
 
-
 class RingBuffer:
     """A circular queue of floats with a fixed capacity."""
 
@@ -65,12 +64,12 @@ class RingBuffer:
         Raise IndexError if the buffer is already full.
         """
         if self.is_full(): raise IndexError("Ringbuffer.enqueue") 
+
         self._data[self._rear] = x
 
-        if (self.capacity() - 1) == self._rear: self._rear = 0
-        else: self._rear += 1
-
+        self._rear = (self._rear + 1) % self.capacity()
         self._size += 1
+
         # TODO (Milestone 3)
 
     def dequeue(self):
@@ -82,11 +81,8 @@ class RingBuffer:
         if self.size() == 0: raise IndexError("RingBuffer.dequeue")
 
         num = self._data[self._front]
-        self._data[self._front] = 0
 
-        if (self.capacity() - 1) == self._front: self._front = 0
-        else: self._front += 1
-
+        self._front = (self._front + 1) % self.capacity()
         self._size -= 1
 
         return num
@@ -98,6 +94,7 @@ class RingBuffer:
         Raise IndexError if the buffer is empty.
         """
         if self.is_empty(): raise IndexError("RingBuffer.peek")
+        
         return self._data[self._front]
         
         # TODO (Milestone 3)
