@@ -56,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--impl", default="matrix", choices=["matrix", "optimized"])
     parser.add_argument("--sizes", type=int, nargs="+", default=[8, 16, 32, 64])
-    parser.add_argument("--densities", type=float, nargs="+", default=[0.05, 0.25])
+    parser.add_argument("--densities", type=float, nargs="+", default=[0.5, 0.75, 1])
     args = parser.parse_args()
 
     ToneMatrix = load(args.impl)

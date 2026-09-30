@@ -1,16 +1,3 @@
-"""Part 3: the tone matrix.
-
-A grid_size x grid_size grid of cells, stored as a *flat* list in row-major
-order, plus one StringInstrument per row.
-
-Rules for this file:
-  * self.grid is a flat list of bools of length grid_size ** 2. Do not use a
-    list of lists, a dict, a set, or numpy.
-  * The list is fixed-length: no append/pop/insert/remove. resize() is the
-    one place you build a new list, and even there you copy element by
-    element.
-"""
-
 from tonematrix.audio import SAMPLE_RATE, SAMPLES_PER_COLUMN
 from tonematrix.scales import frequency_for_row
 from tonematrix.string_instrument import StringInstrument
@@ -23,17 +10,6 @@ SILENCE_THRESHOLD = 1e-5
 class ToneMatrix:
     def __init__(self, grid_size, sample_rate=SAMPLE_RATE,
                  samples_per_column=SAMPLES_PER_COLUMN):
-        """Build an all-off grid_size x grid_size matrix.
-
-        Set up:
-          * self.grid          - flat list of grid_size ** 2 False values
-          * self.instruments   - one StringInstrument per row, tuned with
-                                  frequency_for_row(row, grid_size)
-          * self.column        - the column the playhead is about to pluck
-          * whatever bookkeeping you need for next_sample() and drag()
-
-        Raise ValueError if grid_size < 1.
-        """
         if grid_size < 1:
             raise ValueError("grid_size must be at least 1.")
         
@@ -46,99 +22,55 @@ class ToneMatrix:
                                              sample_rate=sample_rate)
                             for row in range(grid_size)]
         self.active_rows = []
-        self._energy_check_index = 0
+        self.energy_check_index = 0
 
         self.column = 0
-        self._drag_value = None  
-        self._sample_count = 0  
-        self._samples_until_column = 0
-
-        # TODO (Milestone 5)
-        # raise NotImplementedError("ToneMatrix.__init__")
-
-    ### indexing
-
+        self.drag_value = None  
+        self.sample_count = 0  
+        self.samples_until_column = 0
+        
     def index_of(self, row, col):
-        """Map a (row, col) pair to its index in the flat list.
-
-        Raise IndexError if the position is off the grid.
-        """
+        
         if not (0 <= row < self.grid_size) or not (0 <= col < self.grid_size):
             raise IndexError("Position out of bounds.") 
 
         return row * self.grid_size + col
     
-        # TODO (Milestone 5)
-        # raise NotImplementedError("ToneMatrix.index_of")
-
     def is_on(self, row, col):
-        """Provided, once index_of works."""
+
         return self.grid[self.index_of(row, col)]
 
     def set_cell(self, row, col, value):
-        """Provided, once index_of works."""
+
         self.grid[self.index_of(row, col)] = bool(value)
 
-    ### editing
-
     def press(self, row, col):
-        """The user clicked this cell: toggle it.
-
-        Also remember what the cell became, so that drag() can copy it.
-        """
 
         self.set_cell(row, col, not self.is_on(row, col))
-        self._drag_value = self.is_on(row, col)
+        self.drag_value = self.is_on(row, col)
  
-        # TODO (Milestone 6)
-        # raise NotImplementedError("ToneMatrix.press")
-
     def drag(self, row, col):
-        """The user dragged across this cell after a press().
 
-        The cell takes on the same value the pressed cell ended up with: a
-        drag that started by switching a cell on paints cells on, and a drag
-        that started by switching one off erases.
-        """
-
-        self.set_cell(row, col, self._drag_value)
-
-        # TODO (Milestone 6)
-        # raise NotImplementedError("ToneMatrix.drag")
+        self.set_cell(row, col, self.drag_value)
 
     def clear(self):
-        """Switch every cell off, without replacing the list."""
 
         for i in range(len(self.grid)):
             self.grid[i] = False
 
         self.active_rows.clear()
 
-        # TODO (Milestone 6)
-        # raise NotImplementedError("ToneMatrix.clear")
-
-    ### playback
-
     def next_sample(self):
-        """Return the next sample of audio, advancing time by one step.
 
-        On the very first call, and on every samples_per_column-th call after
-        that: pluck every lit cell in the current column, then move the
-        playhead one column right, wrapping around.
-
-        Every call, including those ones, returns the sum of next_sample()
-        over all the instruments.
-        """
-
-        if self._samples_until_column == 0:
-            self._retire_quiet_row()
+        if self.samples_until_column == 0:
+            self.retire_quiet_row()
             self.pluck_column(self.column)
             self.column = (self.column + 1) % self.grid_size
-            self._samples_until_column = self.samples_per_column - 1
+            self.samples_until_column = self.samples_per_column - 1
         else:
-            self._samples_until_column -= 1
+            self.samples_until_column -= 1
 
-        self._sample_count += 1
+        self.sample_count += 1
 
         total = 0.0
         active_rows = self.active_rows
@@ -148,11 +80,7 @@ class ToneMatrix:
 
         return total
 
-        # TODO (Milestone 7)
-        # raise NotImplementedError("ToneMatrix.next_sample")
-
     def pluck_column(self, col):
-        """Pluck the string of every lit row in this column."""
 
         for row in range(self.grid_size):
             if self.is_on(row, col):
@@ -160,37 +88,23 @@ class ToneMatrix:
                 if row not in self.active_rows:
                     self.active_rows.append(row)
 
-    def _retire_quiet_row(self):
-        """Check one active row and remove it if its sound is inaudible."""
+    def retire_quiet_row(self):
+        
         if not self.active_rows:
-            self._energy_check_index = 0
+            self.energy_check_index = 0
             return
 
-        index = self._energy_check_index % len(self.active_rows)
+        index = self.energy_check_index % len(self.active_rows)
         row = self.active_rows[index]
         if self.instruments[row].energy() <= SILENCE_THRESHOLD:
             last_row = self.active_rows.pop()
             if index < len(self.active_rows):
                 self.active_rows[index] = last_row
-            self._energy_check_index %= max(1, len(self.active_rows))
+            self.energy_check_index %= max(1, len(self.active_rows))
         else:
-            self._energy_check_index = (index + 1) % len(self.active_rows)
-
-        # TODO (Milestone 7)
-        # raise NotImplementedError("ToneMatrix.pluck_column")
-
-    ### resizing
+            self.energy_check_index = (index + 1) % len(self.active_rows)
 
     def resize(self, new_size):
-        """Change the grid to new_size x new_size.
-
-        Cells present in both the old and new grid keep their values; new
-        cells start off. Instruments for rows that survive are reused as-is,
-        rows beyond the old size get fresh instruments. The playhead resets
-        to column 0 and the next call to next_sample() plucks immediately.
-
-        Raise ValueError if new_size < 1.
-        """
 
         if new_size < 1:
             raise ValueError("new_size must be at least 1.")
@@ -219,19 +133,12 @@ class ToneMatrix:
         for row, instrument in enumerate(self.instruments):
             if instrument.energy() > SILENCE_THRESHOLD:
                 self.active_rows.append(row)
-        self._energy_check_index = 0
+        self.energy_check_index = 0
         self.column = 0
-        self._sample_count = 0
-        self._samples_until_column = 0
-
-        # TODO (Milestone 8)
-        # raise NotImplementedError("ToneMatrix.resize")
-
-    ### serialization
+        self.sample_count = 0
+        self.samples_until_column = 0
 
     def to_text(self):
-        """Render the grid as grid_size lines of '#' and '.'."""
-
         lines = []
         for row in range(self.grid_size):
             line = ''.join(ON if self.is_on(row, col) else OFF
@@ -239,13 +146,9 @@ class ToneMatrix:
             lines.append(line)
         
         return '\n'.join(lines)
-        
-        # TODO (Milestone 6)
-        # raise NotImplementedError("ToneMatrix.to_text")
 
     @classmethod
     def from_text(cls, text, **kwargs):
-        """Build a matrix from the format to_text() produces. Provided."""
         rows = [line.strip() for line in text.strip().splitlines() if line.strip()]
         size = len(rows)
         if any(len(line) != size for line in rows):
