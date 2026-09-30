@@ -77,11 +77,7 @@ class ToneMatrix:
 
     def set_cell(self, row, col, value):
         """Provided, once index_of works."""
-
-        index = self.index_of(row, col)
-        value = bool(value)
-
-        self.grid[index] = value
+        self.grid[self.index_of(row, col)] = bool(value)
 
     ### editing
 

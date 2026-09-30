@@ -47,7 +47,8 @@ class ToneMatrix:
 
         self.column = 0
         self._drag_value = None  
-        self._sample_count = 0  
+        self._sample_count = 0 
+        self._samples_until_column = 0 
 
         # TODO (Milestone 5)
         # raise NotImplementedError("ToneMatrix.__init__")
@@ -123,10 +124,13 @@ class ToneMatrix:
         over all the instruments.
         """
 
-        if self._sample_count % self.samples_per_column == 0:
+        if self._samples_until_column == 0:       
             self.pluck_column(self.column)
             self.column = (self.column + 1) % self.grid_size
-
+            self._samples_until_column = self.samples_per_column - 1
+        else:
+            self._samples_until_column -= 1
+        
         self._sample_count += 1
 
         total = 0.0
