@@ -41,7 +41,6 @@ class ToneMatrix:
         self.samples_per_column = samples_per_column
         self.sample_rate = sample_rate
 
-        self.grid_lit = [[] for _ in range(grid_size)]
         self.grid = [False] * (grid_size ** 2)
         self.instruments = [StringInstrument(frequency_for_row(row, grid_size),
                                              sample_rate=sample_rate)
@@ -81,10 +80,6 @@ class ToneMatrix:
 
         index = self.index_of(row, col)
         value = bool(value)
-        if value and not self.grid[index]:
-            self.grid_lit[col].append(row)
-        elif not value and self.grid[index]:
-            self.grid_lit[col].remove(row)
 
         self.grid[index] = value
 
@@ -120,9 +115,6 @@ class ToneMatrix:
 
         for i in range(len(self.grid)):
                     self.grid[i] = False
-
-        for i in range(self.grid_size):
-            self.grid_lit[i].clear()
 
         self.active_rows.clear()
 
@@ -166,10 +158,11 @@ class ToneMatrix:
     def pluck_column(self, col):
         """Pluck the string of every lit row in this column."""
 
-        for row in self.grid_lit[col]:
-            self.instruments[row].pluck()
-            if row not in self.active_rows:
-                self.active_rows.append(row)
+        for row in range(self.grid_size):
+            if self.is_on(row, col):
+                self.instruments[row].pluck()
+                if row not in self.active_rows:
+                    self.active_rows.append(row)
 
     def _retire_quiet_row(self):
         """Check one active row and remove it if its sound is inaudible."""
@@ -225,12 +218,6 @@ class ToneMatrix:
         self.grid_size = new_size
         self.grid = new_grid
         
-        self.grid_lit = [[] for _ in range(new_size)]
-        for row in range(min_size):
-            for col in range(min_size):
-                if new_grid[row * new_size + col]:
-                    self.grid_lit[col].append(row)
-
         self.instruments = new_instruments
         self.active_rows = []
         for row, instrument in enumerate(self.instruments):

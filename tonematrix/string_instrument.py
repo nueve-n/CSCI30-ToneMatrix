@@ -9,6 +9,9 @@ Rules for this file:
     into self.buffer._data, and do not keep a second copy of the samples.
   * The buffer is created once in __init__ and never replaced.
   * pluck() and next_sample() allocate nothing.
+  
+
+  linked list
 """
 
 from tonematrix.audio import SAMPLE_RATE

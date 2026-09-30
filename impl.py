@@ -12,6 +12,11 @@ if os.environ.get("TONEMATRIX_IMPL") == "solution":
     from solution.matrix import ToneMatrix
     from solution.ring_buffer import RingBuffer
     from solution.string_instrument import StringInstrument
+    
+elif os.environ.get("TONEMATRIX_IMPL") == "optimized":
+    from tonematrix.optimized import ToneMatrix
+    from tonematrix.ring_buffer import RingBuffer
+    from tonematrix.string_instrument import StringInstrument
 else:
     from tonematrix.matrix import ToneMatrix
     from tonematrix.ring_buffer import RingBuffer
