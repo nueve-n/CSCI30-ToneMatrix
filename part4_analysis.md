@@ -75,4 +75,6 @@ Let:
 | 64   | 1.00 | 38.061 | 39.600 | 0.60 | 0.57 |
 
 ## 4. When the optimized version is worse
-* For sure faster when a = n, but in some cases 0.5 density, greater na si 32. ewan basta.
+* The entire optimization works by shaving off operations on silent and unplucked strings by iterating on an extra list of active strings instead of all string instruments. As such, the optimized version gets slower as $a$ approaches $n$, and surely so when $a = n$. This is because more variables and attributes are in place for bookkeeping of active strings, which becomes pointless when all strings are plucked and ringing anyway.
+
+* As seenin Table 3, across all grid sizes, density 1.0 of the optimized version is always slower than the original. 
