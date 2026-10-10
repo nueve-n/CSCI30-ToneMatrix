@@ -7,10 +7,10 @@ sounds vaguely pleasant: there are no semitone clashes in the scale.
 """
 
 # Semitone offsets of the A minor pentatonic scale, relative to the root.
-_PENTATONIC = (0, 3, 5, 7, 10)
+_PENTATONIC = (0, 2, 4, 5, 7, 9, 11)
 
 # Frequency of the lowest note we use (A2).
-_ROOT_HZ = 110.0
+_ROOT_HZ = 261.626
 
 # How many octaves the scale spans before it wraps back to the bottom. A
 # 16-row matrix uses 20 scale degrees at most, so the wrap only shows up on
