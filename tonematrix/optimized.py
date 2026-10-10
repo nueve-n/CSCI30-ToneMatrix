@@ -22,12 +22,14 @@ class ToneMatrix:
                                              sample_rate=sample_rate)
                             for row in range(grid_size)]
         self.active_rows = []
+        self.active_flags = [False] * grid_size
         self.energy_check_index = 0
 
         self.column = 0
         self.drag_value = None  
         self.sample_count = 0  
         self.samples_until_column = 0
+        self.sequencer = None
         
     def index_of(self, row, col):
         
@@ -59,12 +61,26 @@ class ToneMatrix:
             self.grid[i] = False
 
         self.active_rows.clear()
+        self.active_flags = [False] * self.grid_size
+
+    def set_sequencer(self, sequencer):
+        self.sequencer = sequencer
+        self.sequencer.seed(self)
+        self.column = 0
+        self.sample_count = 0
+        self.samples_until_column = 0
+
+    def clear_sequencer(self):
+        self.sequencer = None
 
     def next_sample(self):
 
         if self.samples_until_column == 0:
             self.retire_quiet_row()
-            self.pluck_column(self.column)
+            swept_column = self.column
+            self.pluck_column(swept_column)
+            if self.sequencer is not None:
+                self.sequencer.advance_after_sweep(self, swept_column)
             self.column = (self.column + 1) % self.grid_size
             self.samples_until_column = self.samples_per_column - 1
         else:
@@ -85,8 +101,9 @@ class ToneMatrix:
         for row in range(self.grid_size):
             if self.is_on(row, col):
                 self.instruments[row].pluck()
-                if row not in self.active_rows:
+                if not self.active_flags[row]:
                     self.active_rows.append(row)
+                    self.active_flags[row] = True
 
     def retire_quiet_row(self):
         
@@ -98,6 +115,7 @@ class ToneMatrix:
         row = self.active_rows[index]
         if self.instruments[row].energy() <= SILENCE_THRESHOLD:
             last_row = self.active_rows.pop()
+            self.active_flags[row] = False
             if index < len(self.active_rows):
                 self.active_rows[index] = last_row
             self.energy_check_index %= max(1, len(self.active_rows))
@@ -117,26 +135,22 @@ class ToneMatrix:
             for col in range(min_size):
                 new_grid[row * new_size + col] = self.is_on(row, col)   
 
-        new_instruments = []
-        for row in range(new_size):
-            if row < old_size:
-                new_instruments.append(self.instruments[row])
-            else:
-                new_instruments.append(StringInstrument(frequency_for_row(row, new_size),
-                                                        sample_rate=self.sample_rate))
+        new_instruments = [StringInstrument(frequency_for_row(row, new_size),
+                                            sample_rate=self.sample_rate)
+                           for row in range(new_size)]
 
         self.grid_size = new_size
         self.grid = new_grid
         
         self.instruments = new_instruments
         self.active_rows = []
-        for row, instrument in enumerate(self.instruments):
-            if instrument.energy() > SILENCE_THRESHOLD:
-                self.active_rows.append(row)
+        self.active_flags = [False] * new_size
         self.energy_check_index = 0
         self.column = 0
         self.sample_count = 0
         self.samples_until_column = 0
+        if self.sequencer is not None:
+            self.sequencer.seed(self)
 
     def to_text(self):
         lines = []

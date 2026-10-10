@@ -94,13 +94,9 @@ class ToneMatrix:
             for col in range(min_size):
                 new_grid[row * new_size + col] = self.is_on(row, col)   
 
-        new_instruments = []
-        for row in range(new_size):
-            if row < old_size:
-                new_instruments.append(self.instruments[row])
-            else:
-                new_instruments.append(StringInstrument(frequency_for_row(row, new_size),
-                                                        sample_rate=self.sample_rate))
+        new_instruments = [StringInstrument(frequency_for_row(row, new_size),
+                                            sample_rate=self.sample_rate)
+                           for row in range(new_size)]
 
         self.grid_size = new_size
         self.grid = new_grid

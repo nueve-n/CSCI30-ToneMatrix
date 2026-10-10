@@ -20,8 +20,9 @@ import tkinter as tk
 from tonematrix.audio import SAMPLE_RATE, SAMPLES_PER_COLUMN, write_wav
 from tonematrix.gui_common import (BG, CELL_OFF, GRID_LINE, TICK_MS,
                                    Highlighter)
-from tonematrix.matrix import ToneMatrix
+from tonematrix.optimized import ToneMatrix
 from tonematrix.playback import AudioStream, LoopPlayer, render_loop, render_pass
+from tonematrix.songs import PRESETS, make_sequencer, preset_grid_size
 
 CELL = 30
 PAD = 8
@@ -74,6 +75,11 @@ class ToneMatrixApp:
         self.size_var = tk.StringVar(value=str(size))
         tk.OptionMenu(bar, self.size_var, "4", "8", "12", "16", "24", "32",
                       command=self.on_resize).pack(side="left")
+
+        tk.Label(bar, text="preset", bg=BG).pack(side="left", padx=(12, 4))
+        self.preset_var = tk.StringVar(value="Manual")
+        tk.OptionMenu(bar, self.preset_var, "Manual", *sorted(PRESETS),
+                      command=self.on_preset_changed).pack(side="left")
 
         self.status = tk.Label(root, text="", bg=BG, anchor="w")
         self.status.pack(fill="x", padx=PAD, pady=(0, PAD))
@@ -180,9 +186,35 @@ class ToneMatrixApp:
         next pass, exactly as any other edit would be.
         """
         with self.lock:
+            self.matrix.clear_sequencer()
             self.matrix.clear()
+        self.preset_var.set("Manual")
         self.after_edit()
         self.say("cleared")
+
+    def on_preset_changed(self, name):
+        if name != "Manual":
+            try:
+                required_size = preset_grid_size(name)
+                sequencer = make_sequencer(name)
+            except ValueError as exc:
+                self.preset_var.set("Manual")
+                self.say(str(exc))
+                return
+            if self.matrix.grid_size < required_size:
+                size = str(required_size)
+                self.size_var.set(size)
+                self.on_resize(size)
+        with self.lock:
+            if name == "Manual":
+                self.matrix.clear_sequencer()
+            else:
+                self.matrix.set_sequencer(sequencer)
+        self.after_edit()
+        if name == "Manual":
+            self.say("manual editing")
+        else:
+            self.say(f"loaded preset: {name}")
 
     def on_resize(self, value):
         was_playing = self.playing
@@ -224,8 +256,7 @@ class ToneMatrixApp:
         self.say("rendering...")
 
         def work():
-            n = self.matrix.grid_size
-            samples = render_loop(self.matrix, self.lock, n * SAMPLES_PER_COLUMN)
+            samples = render_loop(self.matrix, self.lock, self.loop_sample_count())
             path = os.path.join(self.tempdir, "loop.wav")
             write_wav(path, samples, SAMPLE_RATE)
             self.results.put(("loop", path))
@@ -290,7 +321,7 @@ class ToneMatrixApp:
         self.say("rendering...")
 
         def work():
-            samples = render_pass(self.matrix, self.lock, SAMPLE_RATE * 8)
+            samples = render_pass(self.matrix, self.lock, self.export_sample_count())
             write_wav("tonematrix.wav", samples, SAMPLE_RATE)
             self.results.put(("export", None))
 
@@ -299,7 +330,19 @@ class ToneMatrixApp:
     def export_done(self):
         self.busy = False
         self.export_button.configure(state="normal")
-        self.say("wrote tonematrix.wav (8 seconds)")
+        seconds = self.export_sample_count() / SAMPLE_RATE
+        self.say(f"wrote tonematrix.wav ({seconds:.1f} seconds)")
+
+    def loop_sample_count(self):
+        sequencer = getattr(self.matrix, "sequencer", None)
+        columns = sequencer.loop_columns if sequencer is not None else self.matrix.grid_size
+        return columns * SAMPLES_PER_COLUMN
+
+    def export_sample_count(self):
+        sequencer = getattr(self.matrix, "sequencer", None)
+        if sequencer is not None:
+            return sequencer.loop_columns * SAMPLES_PER_COLUMN
+        return SAMPLE_RATE * 8
 
     def close(self):
         if self.poll_job is not None:

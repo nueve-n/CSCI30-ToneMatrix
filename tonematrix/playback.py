@@ -360,6 +360,8 @@ def rewind(matrix):
     alone, which is convenient but means the file backend and Export need
     Milestone 8.
     """
+    if getattr(matrix, "sequencer", None) is not None:
+        matrix.sequencer.seed(matrix)
     try:
         matrix.resize(matrix.grid_size)
     except NotImplementedError:

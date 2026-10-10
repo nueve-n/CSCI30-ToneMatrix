@@ -24,6 +24,7 @@ class StringInstrument:
 
         for _ in range(capacity):
             self.buffer.enqueue(0.0)
+        self._sync_fast_buffer()
 
     @classmethod
     def make_from_array(cls, values, frequency=None, sample_rate=SAMPLE_RATE):
@@ -34,7 +35,13 @@ class StringInstrument:
         string.buffer = RingBuffer(len(values))
         for value in values:
             string.buffer.enqueue(value)
+        string._sync_fast_buffer()
         return string
+
+    def _sync_fast_buffer(self):
+        self._data = self.buffer._data
+        self._capacity = self.buffer.capacity()
+        self._front = self.buffer._front
 
     def __len__(self):
         
@@ -42,34 +49,44 @@ class StringInstrument:
 
     def pluck(self):
         
-        capacity = self.buffer.capacity()
+        capacity = self._capacity
         halfway = capacity // 2
 
-        while not self.buffer.is_empty():
-            self.buffer.dequeue()
-
+        data = self._data
         for i in range(capacity):
             if i < halfway:
-                self.buffer.enqueue(PLUCK_AMPLITUDE)
+                data[i] = PLUCK_AMPLITUDE
             else:
-                self.buffer.enqueue(-PLUCK_AMPLITUDE)
+                data[i] = -PLUCK_AMPLITUDE
+        self._front = 0
+        self.buffer._front = 0
+        self.buffer._rear = 0
+        self.buffer._size = capacity
 
     def next_sample(self):
         
-        first = self.buffer.dequeue()
-        second = self.buffer.peek()
+        data = self._data
+        front = self._front
+        capacity = self._capacity
+        next_front = front + 1
+        if next_front == capacity:
+            next_front = 0
+
+        first = data[front]
+        second = data[next_front]
 
         new_sample = DECAY * 0.5 * (first + second)
-        self.buffer.enqueue(new_sample)
+        data[front] = new_sample
+        self._front = next_front
+        self.buffer._front = next_front
+        self.buffer._rear = next_front
 
         return first
 
     def energy(self):
         
         total = 0.0
-        n = self.buffer.size()
-        for _ in range(n):
-            value = self.buffer.dequeue()
+        data = self._data
+        for value in data:
             total += abs(value)
-            self.buffer.enqueue(value)
-        return total / n
+        return total / self._capacity

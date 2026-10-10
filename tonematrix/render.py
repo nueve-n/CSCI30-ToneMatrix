@@ -9,8 +9,9 @@ over and over and writes the results to disk. Provided, do not modify.
 import argparse
 import sys
 
-from tonematrix.audio import SAMPLE_RATE, write_wav
-from tonematrix.matrix import ToneMatrix
+from tonematrix.audio import SAMPLE_RATE, SAMPLES_PER_COLUMN, write_wav
+from tonematrix.optimized import ToneMatrix
+from tonematrix.songs import PRESETS, make_sequencer, preset_grid_size
 
 
 def render(matrix, seconds, sample_rate=SAMPLE_RATE):
@@ -20,19 +21,39 @@ def render(matrix, seconds, sample_rate=SAMPLE_RATE):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Render a tone matrix pattern to WAV.")
-    parser.add_argument("pattern", help="text file of '#' and '.', one line per row")
-    parser.add_argument("output", nargs="?", default="tonematrix.wav")
-    parser.add_argument("--seconds", type=float, default=8.0)
+    parser.add_argument("pattern", nargs="?",
+                        help="text file of '#' and '.', one line per row")
+    parser.add_argument("output", nargs="?")
+    parser.add_argument("--preset", choices=sorted(PRESETS),
+                        help="coded preset from tonematrix/songs.py")
+    parser.add_argument("--output", dest="output_option")
+    parser.add_argument("--seconds", type=float)
     args = parser.parse_args(argv)
 
-    with open(args.pattern) as src:
-        matrix = ToneMatrix.from_text(src.read())
+    output = args.output_option or args.output or "tonematrix.wav"
+    if args.preset:
+        if args.pattern and not args.output and not args.output_option:
+            output = args.pattern
+        try:
+            matrix = ToneMatrix(preset_grid_size(args.preset))
+            matrix.set_sequencer(make_sequencer(args.preset))
+        except ValueError as exc:
+            parser.error(str(exc))
+        seconds = args.seconds
+        if seconds is None:
+            seconds = matrix.sequencer.loop_columns * SAMPLES_PER_COLUMN / SAMPLE_RATE
+    else:
+        if args.pattern is None:
+            parser.error("a pattern file is required unless --preset is used")
+        with open(args.pattern) as src:
+            matrix = ToneMatrix.from_text(src.read())
+        seconds = args.seconds if args.seconds is not None else 8.0
 
-    print(f"{matrix.grid_size}x{matrix.grid_size} matrix, {args.seconds}s:")
+    print(f"{matrix.grid_size}x{matrix.grid_size} matrix, {seconds}s:")
     print(matrix.to_text())
 
-    write_wav(args.output, render(matrix, args.seconds))
-    print(f"wrote {args.output}")
+    write_wav(output, render(matrix, seconds))
+    print(f"wrote {output}")
     return 0
 
 

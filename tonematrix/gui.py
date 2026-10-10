@@ -22,8 +22,9 @@ import threading
 from tonematrix.audio import SAMPLE_RATE, SAMPLES_PER_COLUMN, write_wav
 from tonematrix.gui_common import (BG, BORDER, CELL_ON, GRID_LINE, MUTED,
                                    PANEL, TEXT, TICK_MS, Highlighter)
-from tonematrix.matrix import ToneMatrix
+from tonematrix.optimized import ToneMatrix
 from tonematrix.playback import AudioStream, LoopPlayer, render_loop, render_pass
+from tonematrix.songs import PRESETS, make_sequencer, preset_grid_size
 
 try:
     from PySide6.QtCore import QRect, Qt, QTimer, Signal
@@ -165,12 +166,19 @@ class ToneMatrixWindow(QWidget):
         self.size_box.setCurrentText(str(size))
         self.size_box.currentTextChanged.connect(self.on_resize)
 
+        self.preset_box = QComboBox()
+        self.preset_box.addItems(["Manual"] + sorted(PRESETS))
+        self.preset_box.currentTextChanged.connect(self.on_preset_changed)
+
         bar = QHBoxLayout()
         for widget in (self.play_button, clear_button, self.export_button):
             bar.addWidget(widget)
         bar.addSpacing(12)
         bar.addWidget(QLabel("size"))
         bar.addWidget(self.size_box)
+        bar.addSpacing(12)
+        bar.addWidget(QLabel("preset"))
+        bar.addWidget(self.preset_box)
         bar.addStretch(1)
 
         self.status = QLabel("")
@@ -226,9 +234,41 @@ class ToneMatrixWindow(QWidget):
         next pass, exactly as any other edit would be.
         """
         with self.lock:
+            self.matrix.clear_sequencer()
             self.matrix.clear()
+        self.preset_box.blockSignals(True)
+        self.preset_box.setCurrentText("Manual")
+        self.preset_box.blockSignals(False)
         self.after_edit()
         self.say("cleared")
+
+    def on_preset_changed(self, name):
+        if name != "Manual":
+            try:
+                required_size = preset_grid_size(name)
+                sequencer = make_sequencer(name)
+            except ValueError as exc:
+                self.preset_box.blockSignals(True)
+                self.preset_box.setCurrentText("Manual")
+                self.preset_box.blockSignals(False)
+                self.say(str(exc))
+                return
+            if self.matrix.grid_size < required_size:
+                size = str(required_size)
+                self.size_box.blockSignals(True)
+                self.size_box.setCurrentText(size)
+                self.size_box.blockSignals(False)
+                self.on_resize(size)
+        with self.lock:
+            if name == "Manual":
+                self.matrix.clear_sequencer()
+            else:
+                self.matrix.set_sequencer(sequencer)
+        self.after_edit()
+        if name == "Manual":
+            self.say("manual editing")
+        else:
+            self.say(f"loaded preset: {name}")
 
     def on_resize(self, value):
         was_playing = self.playing
@@ -271,8 +311,7 @@ class ToneMatrixWindow(QWidget):
         self.say("rendering...")
 
         def work():
-            n = self.matrix.grid_size
-            samples = render_loop(self.matrix, self.lock, n * SAMPLES_PER_COLUMN)
+            samples = render_loop(self.matrix, self.lock, self.loop_sample_count())
             path = os.path.join(self.tempdir, "loop.wav")
             write_wav(path, samples, SAMPLE_RATE)
             self.renderFinished.emit(path)
@@ -338,7 +377,7 @@ class ToneMatrixWindow(QWidget):
         self.say("rendering...")
 
         def work():
-            samples = render_pass(self.matrix, self.lock, SAMPLE_RATE * 8)
+            samples = render_pass(self.matrix, self.lock, self.export_sample_count())
             write_wav("tonematrix.wav", samples, SAMPLE_RATE)
             self.exportFinished.emit()
 
@@ -347,7 +386,19 @@ class ToneMatrixWindow(QWidget):
     def export_done(self):
         self.busy = False
         self.export_button.setEnabled(True)
-        self.say("wrote tonematrix.wav (8 seconds)")
+        seconds = self.export_sample_count() / SAMPLE_RATE
+        self.say(f"wrote tonematrix.wav ({seconds:.1f} seconds)")
+
+    def loop_sample_count(self):
+        sequencer = getattr(self.matrix, "sequencer", None)
+        columns = sequencer.loop_columns if sequencer is not None else self.matrix.grid_size
+        return columns * SAMPLES_PER_COLUMN
+
+    def export_sample_count(self):
+        sequencer = getattr(self.matrix, "sequencer", None)
+        if sequencer is not None:
+            return sequencer.loop_columns * SAMPLES_PER_COLUMN
+        return SAMPLE_RATE * 8
 
     def closeEvent(self, event):
         self.timer.stop()
